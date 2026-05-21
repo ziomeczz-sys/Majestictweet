@@ -11,6 +11,7 @@
     "legacy:server": "node server.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.106.1",
     "@types/node": "^22.10.7",
     "@types/react": "^19.0.7",
     "@types/react-dom": "^19.0.3",

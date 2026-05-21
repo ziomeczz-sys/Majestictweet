@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import type { ChangeEvent, Dispatch, DragEvent, FormEvent, SetStateAction } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { socialRepository } from "@/lib/socialRepository.supabase";
 import type { Announcement, Post, QuickLink, User, UserBadge } from "@/lib/types";
 
 type View = "home" | "profile" | "admin";
@@ -11,125 +12,13 @@ type ProfileForm = { displayName: string; bio: string; avatarUrl: string; banner
 type BadgeDraft = Record<string, UserBadge>;
 type Toast = { id: string; type: "success" | "error" | "info"; message: string };
 type AuthForm = { username: string; password: string; displayName: string; remember: boolean };
-type AppState = { users: User[]; posts: Post[]; announcements: Announcement[]; quickLinks: QuickLink[]; sessionId: string | null };
 type AnnouncementDraft = Pick<Announcement, "title" | "description" | "imageUrl" | "linkUrl">;
 type QuickLinkDraft = Pick<QuickLink, "label" | "url" | "icon">;
 type PasswordDrafts = Record<string, string>;
 
-const STORAGE_KEY = "majestic-twitter-premium-state-v2";
 const USERNAME_PATTERN = /^[a-z0-9_.-]+$/;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-
-const owner: User = {
-  id: "owner",
-  username: "ziomeczz",
-  displayName: "ziomeczz",
-  bio: "CEO Majestic Twitter. Buduje premium social media z futurystycznym UI.",
-  color: "#38bdf8",
-  bannerUrl: "https://images.unsplash.com/photo-1635776062043-223faf322554?auto=format&fit=crop&w=1400&q=80",
-  role: "owner",
-  verified: true,
-  password: "ziomeczz",
-  badge: { label: "CEO", color: "#38bdf8", icon: "" },
-  followingIds: ["u1", "u2"],
-  online: true,
-};
-
-const initialUsers: User[] = [
-  owner,
-  {
-    id: "u1",
-    username: "natalia",
-    displayName: "Natka",
-    bio: "Creator, trendy i szybkie testy nowych formatow.",
-    color: "#a855f7",
-    bannerUrl: "https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=1400&q=80",
-    role: "admin",
-    verified: true,
-    password: "natalia123",
-    badge: { label: "ADMIN", color: "#a855f7", icon: "" },
-    followingIds: ["owner"],
-    online: true,
-  },
-  {
-    id: "u2",
-    username: "studiozero",
-    displayName: "Studio Zero",
-    bio: "Design, produkt i kultura internetu.",
-    color: "#0ea5e9",
-    bannerUrl: "https://images.unsplash.com/photo-1557682250-33bd709cbe85?auto=format&fit=crop&w=1400&q=80",
-    role: "user",
-    verified: false,
-    password: "studio123",
-    badge: { label: "VIP", color: "#22c55e", icon: "" },
-    followingIds: ["owner"],
-    online: false,
-  },
-];
-
-const initialPosts: Post[] = [
-  {
-    id: "p1",
-    author: owner,
-    text: "Nowa wersja Majestic Twitter: profile, zdjecia, komentarze, like system i klikalne #MajesticUI.",
-    imageUrl: "https://images.unsplash.com/photo-1639322537228-f710d846310a?auto=format&fit=crop&w=1200&q=80",
-    createdAt: "teraz",
-    hashtags: ["MajesticUI"],
-    likes: ["u1", "u2"],
-    bookmarks: ["u2"],
-    reposts: ["u1"],
-    pinned: true,
-    comments: [
-      { id: "c1", author: initialUsersSafe(1), text: "To wyglada jak appka z 2026.", createdAt: "2 min" },
-    ],
-  },
-  {
-    id: "p2",
-    author: initialUsersSafe(1),
-    text: "Glassmorphism + neon + dobre spacingi = premium vibe. #Design #Startup",
-    createdAt: "9 min",
-    hashtags: ["Design", "Startup"],
-    likes: ["owner"],
-    bookmarks: [],
-    reposts: [],
-    comments: [],
-  },
-  {
-    id: "p3",
-    author: initialUsersSafe(2),
-    text: "Hashtagi filtrowane w sidebarze robia feed duzo bardziej czytelny. #Social",
-    createdAt: "22 min",
-    hashtags: ["Social"],
-    likes: [],
-    bookmarks: [],
-    reposts: [],
-    comments: [],
-  },
-];
-
-const initialAnnouncements: Announcement[] = [
-  {
-    id: "a1",
-    title: "Majestic Roleplay wystartowal",
-    description: "Nowy panel social jest gotowy do komunikacji, eventow i szybkich ogloszen dla spolecznosci.",
-    imageUrl: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=80",
-    linkUrl: "https://majestic-roleplay.pl",
-    createdAt: "teraz",
-  },
-  {
-    id: "a2",
-    title: "Event tygodnia",
-    description: "Zbieraj ekipe, publikuj najlepsze akcje i oznaczaj posty hashtagiem #MajesticUI.",
-    imageUrl: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80",
-    createdAt: "dzis",
-  },
-];
-
-const initialQuickLinks: QuickLink[] = [
-  { id: "q1", label: "Discord", url: "https://discord.com", icon: "D", createdAt: "teraz" },
-  { id: "q2", label: "Regulamin", url: "https://majestic-roleplay.pl/regulamin", icon: "R", createdAt: "teraz" },
-];
 
 const navItems = [
   { id: "home", label: "Glowna", icon: "H" },
@@ -143,10 +32,6 @@ const badgePresets: UserBadge[] = [
   { label: "VERIFIED", color: "#22c55e", icon: "" },
   { label: "VIP", color: "#f59e0b", icon: "" },
 ];
-
-function initialUsersSafe(index: number) {
-  return initialUsers[index] || owner;
-}
 
 function uid(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -281,10 +166,10 @@ export default function PremiumSocialApp() {
   const [visitedProfileId, setVisitedProfileId] = useState<string | null>(null);
   const [authForm, setAuthForm] = useState<AuthForm>({ username: "", password: "", displayName: "", remember: true });
   const [authError, setAuthError] = useState("");
-  const [users, setUsers] = useState<User[]>(initialUsers);
-  const [posts, setPosts] = useState<Post[]>(initialPosts);
-  const [announcements, setAnnouncements] = useState<Announcement[]>(initialAnnouncements);
-  const [quickLinks, setQuickLinks] = useState<QuickLink[]>(initialQuickLinks);
+  const [users, setUsers] = useState<User[]>([]);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [quickLinks, setQuickLinks] = useState<QuickLink[]>([]);
   const [draft, setDraft] = useState("");
   const [draftImage, setDraftImage] = useState("");
   const [activeHashtag, setActiveHashtag] = useState<string | null>(null);
@@ -293,10 +178,10 @@ export default function PremiumSocialApp() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [profileForm, setProfileForm] = useState<ProfileForm>({
-    displayName: owner.displayName,
-    bio: owner.bio,
+    displayName: "",
+    bio: "",
     avatarUrl: "",
-    bannerUrl: owner.bannerUrl || "",
+    bannerUrl: "",
     currentPassword: "",
     newPassword: "",
   });
@@ -308,46 +193,84 @@ export default function PremiumSocialApp() {
   });
   const [quickLinkDraft, setQuickLinkDraft] = useState<QuickLinkDraft>({ label: "", url: "", icon: "" });
   const [passwordDrafts, setPasswordDrafts] = useState<PasswordDrafts>({});
-  const [badgeDrafts, setBadgeDrafts] = useState<BadgeDraft>(() =>
-    Object.fromEntries(initialUsers.map((user) => [user.id, user.badge || { label: "", color: "#38bdf8", icon: "*" }])),
-  );
+  const [badgeDrafts, setBadgeDrafts] = useState<BadgeDraft>({});
   const [loading, setLoading] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const appShellRef = useRef<HTMLElement | null>(null);
+  const refreshRef = useRef(0);
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    const saved = window.localStorage.getItem(STORAGE_KEY);
-    if (!saved) return;
+  async function refreshPlatformData() {
+    const requestId = ++refreshRef.current;
     try {
-      const parsed = JSON.parse(saved) as AppState;
-      const restoredUsers = (parsed.users || initialUsers).map(normalizeUser);
-      const restoredPosts = (parsed.posts || initialPosts).map(normalizePost);
-      setUsers(restoredUsers);
-      setPosts(restoredPosts);
-      setAnnouncements(parsed.announcements?.length ? parsed.announcements : initialAnnouncements);
-      setQuickLinks(parsed.quickLinks?.length ? parsed.quickLinks : initialQuickLinks);
-      const savedSession = restoredUsers.find((user) => user.id === parsed.sessionId) || null;
-      if (savedSession) {
-        setSession(savedSession);
-        setVisitedProfileId(null);
-      }
+      const [feed, announcementRows, quickLinkRows] = await Promise.all([
+        socialRepository.fetchFeedBundle(),
+        socialRepository.listAnnouncements(),
+        socialRepository.listQuickLinks(),
+      ]);
+      if (requestId !== refreshRef.current) return;
+      setUsers(feed.users.map(normalizeUser));
+      setPosts(feed.posts.map(normalizePost));
+      setAnnouncements(announcementRows);
+      setQuickLinks(quickLinkRows);
+      setBadgeDrafts(
+        Object.fromEntries(feed.users.map((user) => [user.id, user.badge || { label: "", color: "#38bdf8", icon: "*" }])),
+      );
+      setSession((current) => {
+        if (!current) return current;
+        return feed.users.find((user) => user.id === current.id) || current;
+      });
     } catch {
-      window.localStorage.removeItem(STORAGE_KEY);
-    }
-  }, []);
-
-  useEffect(() => {
-    const payload: AppState = { users, posts, announcements, quickLinks, sessionId: authForm.remember ? session?.id || null : null };
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    } catch {
+      if (requestId !== refreshRef.current) return;
       setToasts((current) => [
-        { id: uid("toast"), type: "error" as const, message: "Nie udalo sie zapisac danych lokalnie. Zmniejsz rozmiar uploadu." },
+        { id: uid("toast"), type: "error" as const, message: "Nie udalo sie zaladowac danych z Supabase." },
         ...current,
       ].slice(0, 3));
     }
-  }, [users, posts, announcements, quickLinks, session, authForm.remember]);
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function bootstrap() {
+      try {
+        const restored = await socialRepository.restoreSession();
+        if (!cancelled && restored) {
+          setSession(normalizeUser(restored));
+          setProfileForm(buildProfileForm(restored));
+        }
+      } catch {
+        socialRepository.persistSession(null, false);
+      }
+      await refreshPlatformData();
+    }
+
+    bootstrap();
+    const unsubscribe = socialRepository.subscribeFeed(() => {
+      if (refreshTimerRef.current) window.clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = window.setTimeout(() => {
+        refreshPlatformData();
+      }, 200);
+    });
+
+    return () => {
+      cancelled = true;
+      if (refreshTimerRef.current) window.clearTimeout(refreshTimerRef.current);
+      unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!visitedProfileId || users.some((user) => user.id === visitedProfileId)) return;
+    socialRepository
+      .getUserById(visitedProfileId)
+      .then((user) => {
+        if (!user) return;
+        setUsers((current) => (current.some((item) => item.id === user.id) ? current : [...current, normalizeUser(user)]));
+      })
+      .catch(() => undefined);
+  }, [visitedProfileId, users]);
 
   const visiblePosts = useMemo(
     () => {
@@ -378,7 +301,7 @@ export default function PremiumSocialApp() {
   );
 
   const displayedProfile = useMemo(
-    () => (visitedProfileId ? users.find((user) => user.id === visitedProfileId) : session) || session || users[0],
+    () => (visitedProfileId ? users.find((user) => user.id === visitedProfileId) : session) || session,
     [visitedProfileId, session, users],
   );
 
@@ -438,7 +361,7 @@ export default function PremiumSocialApp() {
     window.setTimeout(() => setToasts((current) => current.filter((toastItem) => toastItem.id !== item.id)), 3200);
   }
 
-  function submitAuth(event: FormEvent<HTMLFormElement>) {
+  async function submitAuth(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setAuthError("");
     const validation = validateAuthForm(authMode, authForm, users);
@@ -448,44 +371,49 @@ export default function PremiumSocialApp() {
       return;
     }
     setLoading(true);
-    window.setTimeout(() => {
+    try {
       const username = normalizeUsername(authForm.username);
-      const existing = users.find((user) => normalizeUsername(user.username) === username);
       if (authMode === "login") {
-        if (!existing || existing.password !== authForm.password) {
+        const loggedIn = await socialRepository.loginUser(username, authForm.password);
+        if (!loggedIn) {
           setAuthError("Niepoprawny login albo haslo.");
           toast("Niepoprawny login albo haslo.", "error");
-          setLoading(false);
           return;
         }
-        setSession(existing);
+        const user = normalizeUser(loggedIn);
+        setSession(user);
         setVisitedProfileId(null);
-        setProfileForm(buildProfileForm(existing));
+        setProfileForm(buildProfileForm(user));
+        socialRepository.persistSession(user.id, authForm.remember);
         toast("Zalogowano.", "success");
       } else {
-        const createdUser: User = {
-          id: uid("user"),
-          username,
-          displayName: authForm.displayName.trim(),
-          bio: "Nowe konto w Majestic Roleplay.",
-          color: "#7c3aed",
-          bannerUrl: "https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&w=1400&q=80",
-          role: "user",
-          verified: false,
-          password: authForm.password,
-          badge: { label: "NEW", color: "#64748b", icon: "" },
-          followingIds: [],
-          online: true,
-        };
-        setUsers((current) => [createdUser, ...current]);
+        const taken = await socialRepository.getUserByUsername(username);
+        if (taken) {
+          setAuthError("Ten username jest juz zajety.");
+          toast("Ten username jest juz zajety.", "error");
+          return;
+        }
+        const createdUser = normalizeUser(
+          await socialRepository.registerUser({
+            username,
+            displayName: authForm.displayName.trim(),
+            password: authForm.password,
+          }),
+        );
         setSession(createdUser);
         setVisitedProfileId(null);
         setProfileForm(buildProfileForm(createdUser));
+        socialRepository.persistSession(createdUser.id, authForm.remember);
         setView("profile");
         toast("Konto utworzone.", "success");
       }
+      await refreshPlatformData();
+    } catch {
+      setAuthError("Operacja logowania nie powiodla sie.");
+      toast("Operacja logowania nie powiodla sie.", "error");
+    } finally {
       setLoading(false);
-    }, 550);
+    }
   }
 
   function logout() {
@@ -494,6 +422,7 @@ export default function PremiumSocialApp() {
     setAccountOpen(false);
     setView("home");
     setAuthForm({ username: "", password: "", displayName: "", remember: true });
+    socialRepository.persistSession(null, false);
     toast("Wylogowano.", "info");
   }
 
@@ -509,7 +438,7 @@ export default function PremiumSocialApp() {
     setSession((current) => (current?.id === updated.id ? updated : current));
   }
 
-  function saveProfile(event: FormEvent<HTMLFormElement>) {
+  async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!session) return;
     if (profileForm.newPassword) {
@@ -522,77 +451,75 @@ export default function PremiumSocialApp() {
         return;
       }
     }
-    const updated: User = {
-      ...session,
-      displayName: profileForm.displayName.trim() || session.displayName,
-      bio: profileForm.bio.trim(),
-      avatarUrl: profileForm.avatarUrl || undefined,
-      bannerUrl: profileForm.bannerUrl || undefined,
-      password: profileForm.newPassword || session.password,
-      passwordUpdatedAt: profileForm.newPassword ? "teraz" : session.passwordUpdatedAt,
-    };
-    syncUser(updated);
-    setProfileForm(buildProfileForm(updated));
-    setProfileOpen(false);
-    toast("Profil zapisany.", "success");
+    try {
+      const updated = normalizeUser(
+        await socialRepository.updateUserProfile(session.id, {
+          displayName: profileForm.displayName.trim() || session.displayName,
+          bio: profileForm.bio.trim(),
+          avatarUrl: profileForm.avatarUrl || undefined,
+          bannerUrl: profileForm.bannerUrl || undefined,
+        }),
+      );
+      if (profileForm.newPassword) {
+        await socialRepository.changeUserPassword(session.id, profileForm.newPassword);
+        updated.password = profileForm.newPassword;
+        updated.passwordUpdatedAt = "teraz";
+      }
+      syncUser(updated);
+      setProfileForm(buildProfileForm(updated));
+      setProfileOpen(false);
+      toast("Profil zapisany.", "success");
+    } catch {
+      toast("Nie udalo sie zapisac profilu.", "error");
+    }
   }
 
-  function publishPost(event: FormEvent<HTMLFormElement>) {
+  async function publishPost(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!session || (!draft.trim() && !draftImage)) return;
-    const hashtags = extractHashtags(draft);
-    setPosts((current) => [
-      {
-        id: uid("post"),
-        author: session,
-        text: draft.trim(),
-        imageUrl: draftImage || undefined,
-        createdAt: "teraz",
-        hashtags,
-        likes: [],
-        bookmarks: [],
-        reposts: [],
-        comments: [],
-      },
-      ...current,
-    ]);
-    setDraft("");
-    setDraftImage("");
+    const text = draft.trim();
+    try {
+      await socialRepository.createPost(session.id, text, draftImage || undefined);
+      setDraft("");
+      setDraftImage("");
+      await refreshPlatformData();
+    } catch {
+      toast("Nie udalo sie opublikowac posta.", "error");
+    }
   }
 
-  function deletePost(postId: string) {
+  async function deletePost(postId: string) {
     const target = posts.find((post) => post.id === postId);
     if (!session || !target) return;
     if (target.author.id !== session.id && !canModerate(session)) return;
-    setPosts((current) => current.filter((post) => post.id !== postId));
+    try {
+      await socialRepository.deletePost(postId);
+      await refreshPlatformData();
+    } catch {
+      toast("Nie udalo sie usunac posta.", "error");
+    }
   }
 
-  function savePostEdit(postId: string) {
+  async function savePostEdit(postId: string) {
     if (!editingPost) return;
-    setPosts((current) =>
-      current.map((post) =>
-        post.id === postId
-          ? { ...post, text: editingPost.text.trim(), hashtags: extractHashtags(editingPost.text), updatedAt: "edytowano teraz" }
-          : post,
-      ),
-    );
-    setEditingPost(null);
+    const text = editingPost.text.trim();
+    try {
+      await socialRepository.updatePost(postId, text);
+      setEditingPost(null);
+      await refreshPlatformData();
+    } catch {
+      toast("Nie udalo sie zapisac edycji posta.", "error");
+    }
   }
 
-  function toggleLike(postId: string) {
+  async function toggleLike(postId: string) {
     if (!session) return;
-    setPosts((current) =>
-      current.map((post) =>
-        post.id === postId
-          ? {
-              ...post,
-              likes: post.likes.includes(session.id)
-                ? post.likes.filter((id) => id !== session.id)
-                : [...post.likes, session.id],
-            }
-          : post,
-      ),
-    );
+    try {
+      await socialRepository.toggleLike(postId, session.id);
+      await refreshPlatformData();
+    } catch {
+      toast("Nie udalo sie zaktualizowac polubienia.", "error");
+    }
   }
 
   function toggleBookmark(postId: string) {
@@ -628,59 +555,71 @@ export default function PremiumSocialApp() {
     );
   }
 
-  function toggleFollow(targetId: string) {
+  async function toggleFollow(targetId: string) {
     if (!session || targetId === session.id) return;
-    const followingIds = session.followingIds || [];
-    const updated = {
-      ...session,
-      followingIds: followingIds.includes(targetId) ? followingIds.filter((id) => id !== targetId) : [...followingIds, targetId],
-    };
-    syncUser(updated);
-    toast("Zaktualizowano obserwowanych.", "success");
+    try {
+      await socialRepository.toggleFollow(session.id, targetId);
+      await refreshPlatformData();
+      toast("Zaktualizowano obserwowanych.", "success");
+    } catch {
+      toast("Nie udalo sie zaktualizowac obserwowanych.", "error");
+    }
   }
 
-  function addComment(postId: string) {
+  async function addComment(postId: string) {
     if (!session) return;
     const text = (commentDrafts[postId] || "").trim();
     if (!text) return;
-    setPosts((current) =>
-      current.map((post) =>
-        post.id === postId
-          ? { ...post, comments: [...post.comments, { id: uid("comment"), author: session, text, createdAt: "teraz" }] }
-          : post,
-      ),
-    );
-    setCommentDrafts((current) => ({ ...current, [postId]: "" }));
+    try {
+      await socialRepository.addComment(postId, session.id, text);
+      setCommentDrafts((current) => ({ ...current, [postId]: "" }));
+      await refreshPlatformData();
+    } catch {
+      toast("Nie udalo sie dodac komentarza.", "error");
+    }
   }
 
-  function updateBadge(userId: string) {
+  async function deleteComment(commentId: string) {
+    if (!session) return;
+    const target = posts.flatMap((post) => post.comments).find((comment) => comment.id === commentId);
+    if (!target) return;
+    if (target.author.id !== session.id && !canModerate(session)) return;
+    try {
+      await socialRepository.deleteComment(commentId);
+      await refreshPlatformData();
+    } catch {
+      toast("Nie udalo sie usunac komentarza.", "error");
+    }
+  }
+
+  async function updateBadge(userId: string) {
     const badge = badgeDrafts[userId];
-    setUsers((current) => current.map((user) => (user.id === userId ? { ...user, badge } : user)));
-    setPosts((current) =>
-      current.map((post) => ({
-        ...post,
-        author: post.author.id === userId ? { ...post.author, badge } : post.author,
-        comments: post.comments.map((comment) => (comment.author.id === userId ? { ...comment, author: { ...comment.author, badge } } : comment)),
-      })),
-    );
+    const role = badge.label === "CEO" ? "owner" : badge.label === "ADMIN" ? "admin" : "user";
+    try {
+      const updated = normalizeUser(await socialRepository.updateUserBadge(userId, badge, role));
+      syncUser(updated);
+      await refreshPlatformData();
+      toast("Tag przypisany.", "success");
+    } catch {
+      toast("Nie udalo sie przypisac tagu.", "error");
+    }
   }
 
-  function toggleVerified(userId: string) {
+  async function toggleVerified(userId: string) {
     if (!canModerate(session)) return;
-    setUsers((current) => current.map((user) => (user.id === userId ? { ...user, verified: !user.verified } : user)));
-    setPosts((current) =>
-      current.map((post) => ({
-        ...post,
-        author: post.author.id === userId ? { ...post.author, verified: !post.author.verified } : post.author,
-        comments: post.comments.map((comment) =>
-          comment.author.id === userId ? { ...comment, author: { ...comment.author, verified: !comment.author.verified } } : comment,
-        ),
-      })),
-    );
-    toast("Zmieniono status verified.", "success");
+    const target = users.find((user) => user.id === userId);
+    if (!target) return;
+    try {
+      const updated = normalizeUser(await socialRepository.setUserVerified(userId, !target.verified));
+      syncUser(updated);
+      await refreshPlatformData();
+      toast("Zmieniono status verified.", "success");
+    } catch {
+      toast("Nie udalo sie zmienic statusu verified.", "error");
+    }
   }
 
-  function changeUserPassword(userId: string) {
+  async function changeUserPassword(userId: string) {
     if (!canModerate(session)) return;
     const newPassword = (passwordDrafts[userId] || "").trim();
     if (newPassword.length < 8) {
@@ -689,64 +628,79 @@ export default function PremiumSocialApp() {
     }
     const target = users.find((user) => user.id === userId);
     if (!target || target.role === "owner") return;
-    syncUser({ ...target, password: newPassword, passwordUpdatedAt: "teraz" });
-    setPasswordDrafts((current) => ({ ...current, [userId]: "" }));
-    toast("Haslo uzytkownika zostalo zmienione.", "success");
+    try {
+      await socialRepository.changeUserPassword(userId, newPassword);
+      syncUser({ ...target, password: newPassword, passwordUpdatedAt: "teraz" });
+      setPasswordDrafts((current) => ({ ...current, [userId]: "" }));
+      toast("Haslo uzytkownika zostalo zmienione.", "success");
+    } catch {
+      toast("Nie udalo sie zmienic hasla.", "error");
+    }
   }
 
-  function addAnnouncement(event: FormEvent<HTMLFormElement>) {
+  async function addAnnouncement(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canModerate(session)) return;
     if (!announcementDraft.title.trim() || !announcementDraft.description.trim()) {
       toast("Uzupelnij tytul i opis ogloszenia.", "error");
       return;
     }
-    setAnnouncements((current) => [
-      {
-        id: uid("announcement"),
+    try {
+      await socialRepository.createAnnouncement({
         title: announcementDraft.title.trim(),
         description: announcementDraft.description.trim(),
         imageUrl: announcementDraft.imageUrl || undefined,
         linkUrl: announcementDraft.linkUrl?.trim() || undefined,
-        createdAt: "teraz",
-      },
-      ...current,
-    ]);
-    setAnnouncementDraft({ title: "", description: "", imageUrl: "", linkUrl: "" });
-    toast("Ogloszenie dodane.", "success");
+      });
+      setAnnouncementDraft({ title: "", description: "", imageUrl: "", linkUrl: "" });
+      await refreshPlatformData();
+      toast("Ogloszenie dodane.", "success");
+    } catch {
+      toast("Nie udalo sie dodac ogloszenia.", "error");
+    }
   }
 
-  function deleteAnnouncement(id: string) {
+  async function deleteAnnouncement(id: string) {
     if (!canModerate(session)) return;
-    setAnnouncements((current) => current.filter((announcement) => announcement.id !== id));
-    toast("Ogloszenie usuniete.", "info");
+    try {
+      await socialRepository.deleteAnnouncement(id);
+      await refreshPlatformData();
+      toast("Ogloszenie usuniete.", "info");
+    } catch {
+      toast("Nie udalo sie usunac ogloszenia.", "error");
+    }
   }
 
-  function addQuickLink(event: FormEvent<HTMLFormElement>) {
+  async function addQuickLink(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canModerate(session)) return;
     if (!quickLinkDraft.label.trim() || !quickLinkDraft.url.trim()) {
       toast("Podaj nazwe przycisku i URL.", "error");
       return;
     }
-    setQuickLinks((current) => [
-      {
-        id: uid("link"),
+    try {
+      await socialRepository.createQuickLink({
         label: quickLinkDraft.label.trim(),
         url: quickLinkDraft.url.trim(),
         icon: quickLinkDraft.icon?.trim().slice(0, 2) || undefined,
-        createdAt: "teraz",
-      },
-      ...current,
-    ]);
-    setQuickLinkDraft({ label: "", url: "", icon: "" });
-    toast("Przycisk dodany.", "success");
+      });
+      setQuickLinkDraft({ label: "", url: "", icon: "" });
+      await refreshPlatformData();
+      toast("Przycisk dodany.", "success");
+    } catch {
+      toast("Nie udalo sie dodac przycisku.", "error");
+    }
   }
 
-  function deleteQuickLink(id: string) {
+  async function deleteQuickLink(id: string) {
     if (!canModerate(session)) return;
-    setQuickLinks((current) => current.filter((link) => link.id !== id));
-    toast("Przycisk usuniety.", "info");
+    try {
+      await socialRepository.deleteQuickLink(id);
+      await refreshPlatformData();
+      toast("Przycisk usuniety.", "info");
+    } catch {
+      toast("Nie udalo sie usunac przycisku.", "error");
+    }
   }
 
   return (
