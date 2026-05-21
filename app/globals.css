@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --grid: rgba(148, 163, 184, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  overflow-x: hidden;
+  background: #030712;
+  color: #eef4ff;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -4;
+  background:
+    radial-gradient(circle at 18% 12%, rgba(124, 58, 237, 0.42), transparent 33%),
+    radial-gradient(circle at 78% 8%, rgba(56, 189, 248, 0.3), transparent 30%),
+    radial-gradient(circle at 50% 88%, rgba(14, 165, 233, 0.2), transparent 36%),
+    linear-gradient(140deg, #020617 0%, #050716 38%, #080218 100%);
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -3;
+  opacity: 0.46;
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 52px 52px;
+  mask-image: radial-gradient(circle at center, black, transparent 82%);
+}
+
+::selection {
+  background: rgba(56, 189, 248, 0.35);
+}
+
+@layer components {
+  .glass {
+    @apply border border-white/10 bg-white/[0.055] shadow-2xl shadow-black/30 backdrop-blur-2xl;
+  }
+
+  .glass-soft {
+    @apply border border-white/10 bg-white/[0.04] backdrop-blur-xl;
+  }
+
+  .premium-button {
+    @apply relative overflow-hidden rounded-full bg-gradient-to-r from-sky-400 via-blue-500 to-violet-500 px-5 py-3 font-black text-white shadow-glow transition duration-300 hover:scale-[1.025] hover:shadow-violet active:scale-[0.98];
+  }
+
+  .premium-button::before {
+    content: "";
+    @apply absolute inset-0 translate-x-[-120%] bg-gradient-to-r from-transparent via-white/35 to-transparent transition duration-700;
+  }
+
+  .premium-button:hover::before {
+    @apply translate-x-[120%];
+  }
+
+  .icon-chip {
+    @apply grid h-11 w-11 place-items-center rounded-2xl border border-white/10 bg-white/[0.06] text-slate-200 transition duration-300 hover:border-sky-300/40 hover:bg-sky-300/10 hover:text-white;
+  }
+
+  .skeleton-line {
+    @apply rounded-full bg-[linear-gradient(90deg,rgba(255,255,255,0.05),rgba(255,255,255,0.16),rgba(255,255,255,0.05))] bg-[length:500px_100%] animate-shimmer;
+  }
+}

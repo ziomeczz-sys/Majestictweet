@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Majestic Twitter</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="shell" id="shell">
+      <aside class="rail" aria-label="Nawigacja">
+        <a class="logo" href="/" aria-label="Majestic Twitter">
+          <span>M</span>
+        </a>
+        <nav class="nav">
+          <button class="nav__item is-active" data-view="home" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.4 12 3l9 7.4V21h-6v-6H9v6H3V10.4Z"/></svg>
+            <span>Główna</span>
+          </button>
+          <button class="nav__item" data-view="profile" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm-9 9a9 9 0 0 1 18 0H3Z"/></svg>
+            <span>Profil</span>
+          </button>
+          <button class="nav__item owner-only" data-view="admin" type="button" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 5.6v6.1c0 5 3.4 9.7 8 10.9 4.6-1.2 8-5.9 8-10.9V5.6L12 2Zm1 6v4h4v2h-6V8h2Z"/></svg>
+            <span>Panel</span>
+          </button>
+        </nav>
+        <button class="compose-rail" id="railCompose" type="button">Post</button>
+        <div class="mini-account" id="miniAccount" hidden></div>
+      </aside>
+
+      <main class="timeline">
+        <section class="auth" id="authView">
+          <div class="auth__visual">
+            <div class="orbital">
+              <span>MT</span>
+              <i></i><i></i><i></i>
+            </div>
+            <h1>Majestic Twitter</h1>
+            <p>Nowoczesna społeczność z kontami, profilami, weryfikacją i panelem właściciela.</p>
+          </div>
+          <div class="auth__panel">
+            <div class="auth-tabs" role="tablist">
+              <button class="auth-tab is-active" data-auth="login" type="button">Logowanie</button>
+              <button class="auth-tab" data-auth="register" type="button">Rejestracja</button>
+            </div>
+
+            <form class="form" id="loginForm">
+              <label>Login<input id="loginUsername" autocomplete="username" required /></label>
+              <label>Hasło<input id="loginPassword" autocomplete="current-password" type="password" required /></label>
+              <button class="button button--primary" type="submit">Zaloguj</button>
+              <p class="small">Konto właściciela: <b>ziomeczz</b> / <b>ziomeczz</b></p>
+            </form>
+
+            <form class="form" id="registerForm" hidden>
+              <label>Login<input id="registerUsername" autocomplete="username" maxlength="24" required /></label>
+              <label>Hasło<input id="registerPassword" autocomplete="new-password" minlength="8" type="password" required /></label>
+              <label>Nazwa profilu<input id="registerDisplayName" maxlength="32" required /></label>
+              <label>Bio<textarea id="registerBio" maxlength="160" rows="3"></textarea></label>
+              <label>Kolor<input id="registerColor" type="color" value="#1d9bf0" /></label>
+              <button class="button button--primary" type="submit">Utwórz konto</button>
+            </form>
+          </div>
+        </section>
+
+        <section class="app" id="appView" hidden>
+          <header class="topbar">
+            <div>
+              <h2 id="viewTitle">Główna</h2>
+              <p id="viewSubtitle">Najnowsze posty społeczności</p>
+            </div>
+            <button class="icon-button" id="logoutButton" type="button" title="Wyloguj">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17v-2h4V9h-4V7h6v10h-6Zm-2 4H4V3h4v2H6v14h2v2Zm10-5-1.4-1.4L19.2 12l-2.6-2.6L18 8l5 4-5 4Z"/></svg>
+            </button>
+          </header>
+
+          <section class="view" id="homeView">
+            <form class="composer" id="postForm">
+              <div class="avatar" id="composerAvatar"></div>
+              <div class="composer__body">
+                <textarea id="postText" maxlength="280" placeholder="Co się dzieje?" rows="3"></textarea>
+                <div class="composer__footer">
+                  <span id="charCount">0/280</span>
+                  <button class="button button--primary" type="submit">Opublikuj</button>
+                </div>
+              </div>
+            </form>
+            <div class="feed" id="feed"></div>
+          </section>
+
+          <section class="view" id="profileView" hidden>
+            <form class="profile-card" id="profileForm">
+              <div class="cover"></div>
+              <div class="profile-card__main">
+                <div class="avatar avatar--large" id="profileAvatar"></div>
+                <div>
+                  <h3 id="profileName"></h3>
+                  <p id="profileHandle"></p>
+                </div>
+              </div>
+              <label>Nazwa profilu<input id="profileDisplayName" maxlength="32" required /></label>
+              <label>Bio<textarea id="profileBio" maxlength="160" rows="4"></textarea></label>
+              <label>Kolor avatara<input id="profileColor" type="color" /></label>
+              <button class="button button--primary" type="submit">Zapisz profil</button>
+            </form>
+
+            <form class="profile-card compact" id="passwordForm">
+              <h3>Zmień hasło</h3>
+              <label>Aktualne hasło<input id="currentPassword" type="password" autocomplete="current-password" required /></label>
+              <label>Nowe hasło<input id="newPassword" type="password" autocomplete="new-password" minlength="8" required /></label>
+              <button class="button button--secondary" type="submit">Zmień hasło</button>
+            </form>
+          </section>
+
+          <section class="view" id="adminView" hidden>
+            <div class="admin-head">
+              <div>
+                <h3>Panel właściciela</h3>
+                <p>Weryfikacja, etykiety i blokowanie kont.</p>
+              </div>
+              <span class="secure-pill">Sesje + hash haseł</span>
+            </div>
+            <div class="users" id="usersList"></div>
+          </section>
+        </section>
+      </main>
+
+      <aside class="rightbar" id="rightbar" hidden>
+        <section class="side-panel">
+          <h3>Majestic Live</h3>
+          <div class="metric"><span>Użytkownicy</span><b id="usersCount">0</b></div>
+          <div class="metric"><span>Posty</span><b id="postsCount">0</b></div>
+          <div class="metric"><span>Zweryfikowani</span><b id="verifiedCount">0</b></div>
+        </section>
+        <section class="side-panel">
+          <h3>Bezpieczeństwo</h3>
+          <p>Hasła są hashowane PBKDF2, a logowanie używa ciasteczek HttpOnly i podpisanych sesji.</p>
+        </section>
+      </aside>
+    </div>
+
+    <div class="toast" id="toast" role="status" hidden></div>
+    <script src="/app.js" defer></script>
+  </body>
+</html>

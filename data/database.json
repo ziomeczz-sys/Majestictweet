@@ -1,0 +1,87 @@
+{
+  "users": [
+    {
+      "id": "owner",
+      "username": "ziomeczz",
+      "passwordHash": "pbkdf2$210000$88fc797c2c460c5e0c575b1d48a23fe1$647a2483de2fdf7d8679fc55bd9e427e448cf650c4dd874ac958697b7ebb1a15373ca581bb8f216aad438d76408384d8bf664284e17eaeb6fbd0ea265a26e5c6",
+      "displayName": "ziomeczz",
+      "bio": "Konto wlasciciela Majestic Twitter.",
+      "color": "#0f1419",
+      "role": "user",
+      "title": "CEO",
+      "verified": true,
+      "suspended": false,
+      "joinedAt": 1779368585413
+    },
+    {
+      "id": "user_0d98771721b448af17baf1c8fddfd567",
+      "username": "kurwa",
+      "passwordHash": "pbkdf2$210000$e9af3a1e3ad852b515b99ea2ecf59ce4$6b6c6363c8d13e762f87c72cb77e941c02cf753e011a76deccbeab4fd22cfa995dbb98e0fe939edc9f1c84e2f28d8b4359c2069d900994375b9edbfd88318a70",
+      "displayName": "1234",
+      "bio": "1234",
+      "color": "#1d9bf0",
+      "role": "user",
+      "title": "esz",
+      "verified": true,
+      "suspended": false,
+      "joinedAt": 1779368740645
+    },
+    {
+      "id": "user_a6e6cd2dbb7a2759cba57ffe0c05106c",
+      "username": "natalia",
+      "passwordHash": "pbkdf2$210000$c8a3863b7e1adfe07b0d88c2b95e8c88$3b5bdc71e0644ddeed4ddb5f1292eed12ec533f3029791458641c9663f7c2adccd9bd830ffda86bf777d289b2b47460ad82e271200b61ac8342394888059421e",
+      "displayName": "Natka",
+      "bio": "siema",
+      "color": "#e31ef1",
+      "role": "user",
+      "title": "",
+      "verified": false,
+      "suspended": false,
+      "joinedAt": 1779368993780
+    }
+  ],
+  "posts": [
+    {
+      "id": "post_c6f8fc5b3688f18e2adea94af33c8797",
+      "userId": "owner",
+      "text": "Witaj na Majestic Twitter. Tu wlasciciel ma panel, weryfikacje i etykiete CEO przy postach.",
+      "createdAt": 1779368525414
+    },
+    {
+      "id": "post_33caa9f69cb285b674c90a2cbe5304cc",
+      "userId": "owner",
+      "text": "siemka",
+      "createdAt": 1779368704738
+    },
+    {
+      "id": "post_4e8351d79bcce15edfffa442c2dd3337",
+      "userId": "owner",
+      "text": "s",
+      "createdAt": 1779368706968
+    },
+    {
+      "id": "post_de441a0b7337af9ca11a3c289ec5780d",
+      "userId": "owner",
+      "text": "sss",
+      "createdAt": 1779368708391
+    },
+    {
+      "id": "post_c052486530df008a488e645b83c86b4a",
+      "userId": "owner",
+      "text": "co tu sie dzieje o kurwa",
+      "createdAt": 1779368716220
+    },
+    {
+      "id": "post_120653345681851532c7c27e2fd1d4ad",
+      "userId": "user_0d98771721b448af17baf1c8fddfd567",
+      "text": "siemka",
+      "createdAt": 1779368767032
+    },
+    {
+      "id": "post_353426b7dd1f7519cb28a154dcaa1ae1",
+      "userId": "user_a6e6cd2dbb7a2759cba57ffe0c05106c",
+      "text": "hejo",
+      "createdAt": 1779369003606
+    }
+  ]
+}
