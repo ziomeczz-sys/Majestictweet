@@ -248,10 +248,11 @@ export default function PremiumSocialApp() {
 
     bootstrap();
     const unsubscribe = socialRepository.subscribeFeed(() => {
-      if (refreshTimerRef.current) window.clearTimeout(refreshTimerRef.current);
-      refreshTimerRef.current = window.setTimeout(() => {
-        refreshPlatformData();
-      }, 200);
+  if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+
+refreshTimerRef.current = setTimeout(() => {
+  refreshPlatformData();
+}, 200);
     });
 
     return () => {
