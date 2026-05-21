@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import type { ChangeEvent, Dispatch, DragEvent, FormEvent, SetStateAction } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { socialRepository } from "@/lib/socialRepository.supabase";
 import type { Announcement, Post, QuickLink, User, UserBadge } from "@/lib/types";
 
@@ -17,6 +17,7 @@ type QuickLinkDraft = Pick<QuickLink, "label" | "url" | "icon">;
 type PasswordDrafts = Record<string, string>;
 
 const USERNAME_PATTERN = /^[a-z0-9_.-]+$/;
+const REFRESH_DEBOUNCE_MS = 250;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
@@ -198,22 +199,39 @@ export default function PremiumSocialApp() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const appShellRef = useRef<HTMLElement | null>(null);
-  const refreshRef = useRef(0);
-  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const refreshSeqRef = useRef(0);
+  const refreshInFlightRef = useRef(false);
+  const refreshQueuedRef = useRef(false);
+  const refreshTimerRef = useRef<number | null>(null);
 
-  async function refreshPlatformData() {
-    const requestId = ++refreshRef.current;
+  const clearRefreshTimer = useCallback(() => {
+    if (refreshTimerRef.current !== null) {
+      window.clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = null;
+    }
+  }, []);
+
+  const refreshPlatformData = useCallback(async () => {
+    if (refreshInFlightRef.current) {
+      refreshQueuedRef.current = true;
+      return;
+    }
+
+    refreshInFlightRef.current = true;
+    const requestId = ++refreshSeqRef.current;
+
     try {
       const [feed, announcementRows, quickLinkRows] = await Promise.all([
         socialRepository.fetchFeedBundle(),
         socialRepository.listAnnouncements(),
         socialRepository.listQuickLinks(),
       ]);
-      if (requestId !== refreshRef.current) return;
+      if (requestId !== refreshSeqRef.current) return;
+
       setUsers(feed.users.map(normalizeUser));
       setPosts(feed.posts.map(normalizePost));
-      setAnnouncements(announcementRows);
-      setQuickLinks(quickLinkRows);
+      setAnnouncements([...announcementRows]);
+      setQuickLinks([...quickLinkRows]);
       setBadgeDrafts(
         Object.fromEntries(feed.users.map((user) => [user.id, user.badge || { label: "", color: "#38bdf8", icon: "*" }])),
       );
@@ -222,13 +240,34 @@ export default function PremiumSocialApp() {
         return feed.users.find((user) => user.id === current.id) || current;
       });
     } catch {
-      if (requestId !== refreshRef.current) return;
+      if (requestId !== refreshSeqRef.current) return;
       setToasts((current) => [
         { id: uid("toast"), type: "error" as const, message: "Nie udalo sie zaladowac danych z Supabase." },
         ...current,
       ].slice(0, 3));
+    } finally {
+      refreshInFlightRef.current = false;
+      if (refreshQueuedRef.current) {
+        refreshQueuedRef.current = false;
+        void refreshPlatformData();
+      }
     }
-  }
+  }, []);
+
+  const schedulePlatformRefresh = useCallback(
+    (immediate = false) => {
+      clearRefreshTimer();
+      if (immediate) {
+        void refreshPlatformData();
+        return;
+      }
+      refreshTimerRef.current = window.setTimeout(() => {
+        refreshTimerRef.current = null;
+        void refreshPlatformData();
+      }, REFRESH_DEBOUNCE_MS);
+    },
+    [clearRefreshTimer, refreshPlatformData],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -243,24 +282,20 @@ export default function PremiumSocialApp() {
       } catch {
         socialRepository.persistSession(null, false);
       }
-      await refreshPlatformData();
+      if (!cancelled) await refreshPlatformData();
     }
 
-    bootstrap();
+    void bootstrap();
     const unsubscribe = socialRepository.subscribeFeed(() => {
-  if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
-
-refreshTimerRef.current = setTimeout(() => {
-  refreshPlatformData();
-}, 200);
+      if (!cancelled) schedulePlatformRefresh();
     });
 
     return () => {
       cancelled = true;
-      if (refreshTimerRef.current) window.clearTimeout(refreshTimerRef.current);
+      clearRefreshTimer();
       unsubscribe();
     };
-  }, []);
+  }, [clearRefreshTimer, refreshPlatformData, schedulePlatformRefresh]);
 
   useEffect(() => {
     if (!visitedProfileId || users.some((user) => user.id === visitedProfileId)) return;
@@ -408,7 +443,7 @@ refreshTimerRef.current = setTimeout(() => {
         setView("profile");
         toast("Konto utworzone.", "success");
       }
-      await refreshPlatformData();
+      schedulePlatformRefresh(true);
     } catch {
       setAuthError("Operacja logowania nie powiodla sie.");
       toast("Operacja logowania nie powiodla sie.", "error");
@@ -469,6 +504,7 @@ refreshTimerRef.current = setTimeout(() => {
       syncUser(updated);
       setProfileForm(buildProfileForm(updated));
       setProfileOpen(false);
+      schedulePlatformRefresh(true);
       toast("Profil zapisany.", "success");
     } catch {
       toast("Nie udalo sie zapisac profilu.", "error");
@@ -483,7 +519,7 @@ refreshTimerRef.current = setTimeout(() => {
       await socialRepository.createPost(session.id, text, draftImage || undefined);
       setDraft("");
       setDraftImage("");
-      await refreshPlatformData();
+      schedulePlatformRefresh(true);
     } catch {
       toast("Nie udalo sie opublikowac posta.", "error");
     }
@@ -495,7 +531,7 @@ refreshTimerRef.current = setTimeout(() => {
     if (target.author.id !== session.id && !canModerate(session)) return;
     try {
       await socialRepository.deletePost(postId);
-      await refreshPlatformData();
+      schedulePlatformRefresh(true);
     } catch {
       toast("Nie udalo sie usunac posta.", "error");
     }
@@ -507,7 +543,7 @@ refreshTimerRef.current = setTimeout(() => {
     try {
       await socialRepository.updatePost(postId, text);
       setEditingPost(null);
-      await refreshPlatformData();
+      schedulePlatformRefresh(true);
     } catch {
       toast("Nie udalo sie zapisac edycji posta.", "error");
     }
@@ -517,7 +553,7 @@ refreshTimerRef.current = setTimeout(() => {
     if (!session) return;
     try {
       await socialRepository.toggleLike(postId, session.id);
-      await refreshPlatformData();
+      schedulePlatformRefresh(true);
     } catch {
       toast("Nie udalo sie zaktualizowac polubienia.", "error");
     }
@@ -560,7 +596,7 @@ refreshTimerRef.current = setTimeout(() => {
     if (!session || targetId === session.id) return;
     try {
       await socialRepository.toggleFollow(session.id, targetId);
-      await refreshPlatformData();
+      schedulePlatformRefresh(true);
       toast("Zaktualizowano obserwowanych.", "success");
     } catch {
       toast("Nie udalo sie zaktualizowac obserwowanych.", "error");
@@ -574,7 +610,7 @@ refreshTimerRef.current = setTimeout(() => {
     try {
       await socialRepository.addComment(postId, session.id, text);
       setCommentDrafts((current) => ({ ...current, [postId]: "" }));
-      await refreshPlatformData();
+      schedulePlatformRefresh(true);
     } catch {
       toast("Nie udalo sie dodac komentarza.", "error");
     }
@@ -587,7 +623,7 @@ refreshTimerRef.current = setTimeout(() => {
     if (target.author.id !== session.id && !canModerate(session)) return;
     try {
       await socialRepository.deleteComment(commentId);
-      await refreshPlatformData();
+      schedulePlatformRefresh(true);
     } catch {
       toast("Nie udalo sie usunac komentarza.", "error");
     }
@@ -599,7 +635,7 @@ refreshTimerRef.current = setTimeout(() => {
     try {
       const updated = normalizeUser(await socialRepository.updateUserBadge(userId, badge, role));
       syncUser(updated);
-      await refreshPlatformData();
+      schedulePlatformRefresh(true);
       toast("Tag przypisany.", "success");
     } catch {
       toast("Nie udalo sie przypisac tagu.", "error");
@@ -613,7 +649,7 @@ refreshTimerRef.current = setTimeout(() => {
     try {
       const updated = normalizeUser(await socialRepository.setUserVerified(userId, !target.verified));
       syncUser(updated);
-      await refreshPlatformData();
+      schedulePlatformRefresh(true);
       toast("Zmieniono status verified.", "success");
     } catch {
       toast("Nie udalo sie zmienic statusu verified.", "error");
@@ -654,7 +690,7 @@ refreshTimerRef.current = setTimeout(() => {
         linkUrl: announcementDraft.linkUrl?.trim() || undefined,
       });
       setAnnouncementDraft({ title: "", description: "", imageUrl: "", linkUrl: "" });
-      await refreshPlatformData();
+      schedulePlatformRefresh(true);
       toast("Ogloszenie dodane.", "success");
     } catch {
       toast("Nie udalo sie dodac ogloszenia.", "error");
@@ -665,7 +701,7 @@ refreshTimerRef.current = setTimeout(() => {
     if (!canModerate(session)) return;
     try {
       await socialRepository.deleteAnnouncement(id);
-      await refreshPlatformData();
+      schedulePlatformRefresh(true);
       toast("Ogloszenie usuniete.", "info");
     } catch {
       toast("Nie udalo sie usunac ogloszenia.", "error");
@@ -686,7 +722,7 @@ refreshTimerRef.current = setTimeout(() => {
         icon: quickLinkDraft.icon?.trim().slice(0, 2) || undefined,
       });
       setQuickLinkDraft({ label: "", url: "", icon: "" });
-      await refreshPlatformData();
+      schedulePlatformRefresh(true);
       toast("Przycisk dodany.", "success");
     } catch {
       toast("Nie udalo sie dodac przycisku.", "error");
@@ -697,7 +733,7 @@ refreshTimerRef.current = setTimeout(() => {
     if (!canModerate(session)) return;
     try {
       await socialRepository.deleteQuickLink(id);
-      await refreshPlatformData();
+      schedulePlatformRefresh(true);
       toast("Przycisk usuniety.", "info");
     } catch {
       toast("Nie udalo sie usunac przycisku.", "error");

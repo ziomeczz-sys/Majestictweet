@@ -503,19 +503,17 @@ export const socialRepository = {
   },
 
   subscribeFeed(onChange: () => void) {
-    const channel = supabase
-      .channel("majestic-feed")
-      .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, onChange)
-      .on("postgres_changes", { event: "*", schema: "public", table: "likes" }, onChange)
-      .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, onChange)
-      .on("postgres_changes", { event: "*", schema: "public", table: "users" }, onChange)
-      .on("postgres_changes", { event: "*", schema: "public", table: "follows" }, onChange)
-      .on("postgres_changes", { event: "*", schema: "public", table: "announcements" }, onChange)
-      .on("postgres_changes", { event: "*", schema: "public", table: "quick_links" }, onChange)
-      .subscribe();
+    const realtimeTables = ["posts", "comments", "likes", "users", "follows", "announcements", "quick_links"] as const;
+    const channel = supabase.channel("majestic-feed-realtime");
+
+    realtimeTables.forEach((table) => {
+      channel.on("postgres_changes", { event: "*", schema: "public", table }, () => onChange());
+    });
+
+    channel.subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      void supabase.removeChannel(channel);
     };
   },
 };
